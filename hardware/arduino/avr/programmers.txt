@@ -76,3 +76,7 @@ buspirate.program.protocol=buspirate
 buspirate.program.tool=avrdude
 buspirate.program.extra_params=-P{serial.port}
 
+cloudino.name=Cloudino
+cloudino.protocol=cloudino
+cloudino.program.tool=cloudino
+cloudino.program.extra_params=
