@@ -1,0 +1,3 @@
+#!/bin/bash
+BASEDIR=$(dirname $0)
+java -cp $BASEDIR/../lib/Cloudino.jar io.cloudino.utils.HexSender $1 $2 $3
