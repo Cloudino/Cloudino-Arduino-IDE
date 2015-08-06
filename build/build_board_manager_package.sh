@@ -27,15 +27,27 @@ size=`/bin/ls -l $outdir.zip | awk '{print $5}'`
 echo Size: $size
 echo SHA-256: $sha
 
-if [ "$upload" == "prod" ]; then
-    remote="http://arduino.esp8266.com"
+if [ "$upload" == "stable" ]; then
+    badge_title="stable"
+    badge_color="blue"
     path=""
-elif [ "$upload" == "stag" ]; then
-    remote="http://arduino.esp8266.com"
+elif [ "$upload" == "staging" ]; then
+    badge_title="staging"
+    badge_color="yellow"
     path="staging/"
+elif [ "$upload" == "test" ]; then
+    badge_title="test"
+    badge_color="red"
+    path="test/"
 else
     upload=""
     remote="http://localhost:8000"
+fi
+
+if [ ! -z "$upload" ]; then
+  remote="http://arduino.esp8266.com"
+  release_date=$(date "+%b_%d,_%Y")
+  wget -O badge.svg https://img.shields.io/badge/$badge_title-$release_date-$badge_color.svg
 fi
 
 cat << EOF > package_esp8266com_index.json
@@ -76,6 +88,9 @@ cat << EOF > package_esp8266com_index.json
         },
         {
           "name":"Adafruit HUZZAH ESP8266 (ESP-12)"
+        },
+        {
+          "name":"SweetPea ESP-210"
         }
       ],
       "toolsDependencies":[ {
@@ -120,7 +135,7 @@ cat << EOF > package_esp8266com_index.json
             "url":"https://github.com/igrr/esptool-ck/releases/download/0.4.5/esptool-0.4.5-linux32.tar.gz",
             "archiveFileName":"esptool-0.4.5-linux32.tar.gz",
             "checksum":"SHA-256:4aa81b97a470641771cf371e5d470ac92d3b177adbe8263c4aae66e607b67755",
-            "size":"12044"  
+            "size":"12044"
         }
       ]
     },
@@ -130,10 +145,10 @@ cat << EOF > package_esp8266com_index.json
       "systems": [
         {
            "host":"i686-mingw32",
-           "url":"http://arduino.esp8266.com/win32-xtensa-lx106-elf-gb404fb9.tar.gz",
-           "archiveFileName":"win32-xtensa-lx106-elf-gb404fb9.tar.gz",
-           "checksum":"SHA-256:1561ec85cc58cab35cc48bfdb0d0087809f89c043112a2c36b54251a13bf781f",
-           "size":"153807368"
+           "url":"http://arduino.esp8266.com/win32-xtensa-lx106-elf-gb404fb9-2.tar.gz",
+           "archiveFileName":"win32-xtensa-lx106-elf-gb404fb9-2.tar.gz",
+           "checksum":"SHA-256:10476b9c11a7a90f40883413ddfb409f505b20692e316c4e597c4c175b4be09c",
+           "size":"153527527"
         },
         {
            "host":"x86_64-apple-darwin",
@@ -162,12 +177,13 @@ cat << EOF > package_esp8266com_index.json
 }
 EOF
 
+
 if [ ! -z "$upload" ]; then
-    scp $outdir.zip dl:apps/download_files/download/$path
-    scp package_esp8266com_index.json dl:apps/download_files/download/$path
+    remote_path=dl:apps/download_files/download/$path
+    scp $outdir.zip $remote_path
+    scp package_esp8266com_index.json $remote_path
+    scp -r $srcdir/doc $remote_path
+    scp badge.svg $remote_path
 else
-    python -m SimpleHTTPServer 
+    python -m SimpleHTTPServer
 fi
-
-
-

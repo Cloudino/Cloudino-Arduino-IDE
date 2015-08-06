@@ -1,9 +1,9 @@
-/* 
+/*
   ESP8266WebServer.cpp - Dead simple web-server.
   Supports only one simultaneous client, knows how to handle GET and POST.
 
   Copyright (c) 2014 Ivan Grokhotkov. All rights reserved.
- 
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
@@ -24,26 +24,12 @@
 #include <Arduino.h>
 #include "WiFiServer.h"
 #include "WiFiClient.h"
+#include "FS.h"
 #include "ESP8266WebServer.h"
-
+#include "detail/RequestHandler.h"
 // #define DEBUG
 #define DEBUG_OUTPUT Serial
 
-struct ESP8266WebServer::RequestHandler {
-  RequestHandler(ESP8266WebServer::THandlerFunction fn, const char* uri, HTTPMethod method)
-  : fn(fn)
-  , uri(uri)
-  , method(method)
-  , next(NULL)
-  {
-  }
-
-  ESP8266WebServer::THandlerFunction fn;
-  String uri;
-  HTTPMethod method;
-  RequestHandler* next;
-
-};
 
 ESP8266WebServer::ESP8266WebServer(int port)
 : _server(port)
@@ -78,15 +64,22 @@ void ESP8266WebServer::on(const char* uri, ESP8266WebServer::THandlerFunction ha
 
 void ESP8266WebServer::on(const char* uri, HTTPMethod method, ESP8266WebServer::THandlerFunction fn)
 {
-  RequestHandler* handler = new RequestHandler(fn, uri, method);
-  if (!_lastHandler) {
-    _firstHandler = handler;
-    _lastHandler = handler;
-  }
-  else {
-    _lastHandler->next = handler;
-    _lastHandler = handler;
-  }
+  _addRequestHandler(new FunctionRequestHandler(fn, uri, method));
+}
+
+void ESP8266WebServer::_addRequestHandler(RequestHandler* handler) {
+    if (!_lastHandler) {
+      _firstHandler = handler;
+      _lastHandler = handler;
+    }
+    else {
+      _lastHandler->next = handler;
+      _lastHandler = handler;
+    }
+}
+
+void ESP8266WebServer::serveStatic(const char* uri, FS& fs, const char* path) {
+    _addRequestHandler(new StaticRequestHandler(fs, uri));
 }
 
 void ESP8266WebServer::handleClient()
@@ -129,30 +122,51 @@ void ESP8266WebServer::sendHeader(const String& name, const String& value, bool 
   }
 }
 
-void ESP8266WebServer::send(int code, const char* content_type, const String& content) {
-  String response = "HTTP/1.1 ";
-  response += String(code);
-  response += " ";
-  response += _responseCodeToString(code);
-  response += "\r\n";
 
-  if (!content_type)
-    content_type = "text/html";
-  
-  sendHeader("Content-Type", content_type, true);
-  if (_contentLength != CONTENT_LENGTH_UNKNOWN && _contentLength != CONTENT_LENGTH_NOT_SET) {
-    sendHeader("Content-Length", String(_contentLength).c_str());
-  } else if(content.length() > 0){
-    sendHeader("Content-Length", String(content.length()).c_str());
-  }
-  sendHeader("Connection", "close");
-  sendHeader("Access-Control-Allow-Origin", "*");
-  
-  response += _responseHeaders;
-  response += "\r\n";
-  response += content;
-  _responseHeaders = String();
-  sendContent(response);
+void ESP8266WebServer::_prepareHeader(String& response, int code, const char* content_type, size_t contentLength) {
+    response = "HTTP/1.1 ";
+    response += String(code);
+    response += " ";
+    response += _responseCodeToString(code);
+    response += "\r\n";
+
+    if (!content_type)
+        content_type = "text/html";
+
+    sendHeader("Content-Type", content_type, true);
+    if (_contentLength != CONTENT_LENGTH_UNKNOWN && _contentLength != CONTENT_LENGTH_NOT_SET) {
+        sendHeader("Content-Length", String(_contentLength).c_str());
+    }
+    else if (contentLength > 0){
+        sendHeader("Content-Length", String(contentLength).c_str());
+    }
+    sendHeader("Connection", "close");
+    sendHeader("Access-Control-Allow-Origin", "*");
+
+    response += _responseHeaders;
+    response += "\r\n";
+    _responseHeaders = String();
+}
+
+void ESP8266WebServer::send(int code, const char* content_type, const String& content) {
+    String header;
+    _prepareHeader(header, code, content_type, content.length());
+    sendContent(header);
+
+    sendContent(content);
+}
+
+void ESP8266WebServer::send_P(int code, PGM_P content_type, PGM_P content) {
+    size_t contentLength = 0;
+
+    if (content != NULL) {
+        contentLength = strlen_P(content);
+    }
+
+    String header;
+    _prepareHeader(header, code, String(FPSTR(content_type)).c_str(), contentLength);
+    sendContent(header);
+    sendContent_P(content);
 }
 
 void ESP8266WebServer::send(int code, char* content_type, const String& content) {
@@ -176,6 +190,34 @@ void ESP8266WebServer::sendContent(const String& content) {
       break;
     }
   }
+}
+
+void ESP8266WebServer::sendContent_P(PGM_P content) {
+    char contentUnit[HTTP_DOWNLOAD_UNIT_SIZE + 1];
+
+    contentUnit[HTTP_DOWNLOAD_UNIT_SIZE] = '\0';
+
+    while (content != NULL) {
+        size_t contentUnitLen;
+        PGM_P contentNext;
+
+        // due to the memccpy signature, lots of casts are needed
+        contentNext = (PGM_P)memccpy_P((void*)contentUnit, (PGM_VOID_P)content, 0, HTTP_DOWNLOAD_UNIT_SIZE);
+
+        if (contentNext == NULL) {
+            // no terminator, more data available
+            content += HTTP_DOWNLOAD_UNIT_SIZE;
+            contentUnitLen = HTTP_DOWNLOAD_UNIT_SIZE;
+        }
+        else {
+            // reached terminator
+            contentUnitLen = contentNext - content;
+            content = NULL;
+        }
+
+        // write is so overloaded, had to use the cast to get it pick the right one
+        _currentClient.write((const char*)contentUnit, contentUnitLen);
+    }
 }
 
 String ESP8266WebServer::arg(const char* name) {
@@ -220,16 +262,9 @@ void ESP8266WebServer::onNotFound(THandlerFunction fn) {
 
 void ESP8266WebServer::_handleRequest() {
   RequestHandler* handler;
-  for (handler = _firstHandler; handler; handler = handler->next)
-  {
-    if (handler->method != HTTP_ANY && handler->method != _currentMethod)
-      continue;
-
-    if (handler->uri != _currentUri)
-      continue;
-
-    handler->fn();
-    break;
+  for (handler = _firstHandler; handler; handler = handler->next) {
+    if (handler->handle(*this, _currentMethod, _currentUri))
+      break;
   }
 
   if (!handler){

@@ -1,9 +1,9 @@
-/* 
+/*
  HardwareSerial.cpp - esp8266 UART support
 
  Copyright (c) 2014 Ivan Grokhotkov. All rights reserved.
  This file is part of the esp8266 core for Arduino environment.
- 
+
  This library is free software; you can redistribute it and/or
  modify it under the terms of the GNU Lesser General Public
  License as published by the Free Software Foundation; either
@@ -552,13 +552,17 @@ bool HardwareSerial::isRxEnabled(void) {
 }
 
 int HardwareSerial::available(void) {
-    if(_uart == 0)
-        return 0;
-    if(_uart->rxEnabled) {
-        return static_cast<int>(_rx_buffer->getSize());
-    } else {
-        return 0;
+    int result = 0;
+
+    if (_uart != NULL && _uart->rxEnabled) {
+        result = static_cast<int>(_rx_buffer->getSize());
     }
+
+    if (!result) {
+        optimistic_yield(USD(_uart->uart_nr) / 128);
+    }
+
+    return result;
 }
 
 int HardwareSerial::peek(void) {

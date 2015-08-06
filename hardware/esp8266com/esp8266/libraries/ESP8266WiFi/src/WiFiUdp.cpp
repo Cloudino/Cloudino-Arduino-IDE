@@ -22,8 +22,8 @@
 
 #define LWIP_INTERNAL
 #include <functional>
-  
-extern "C" 
+
+extern "C"
 {
     #include "include/wl_definitions.h"
     #include "osapi.h"
@@ -45,7 +45,7 @@ template<>
 WiFiUDP* SList<WiFiUDP>::_s_first = 0;
 
 /* Constructor */
-WiFiUDP::WiFiUDP() : _ctx(0) 
+WiFiUDP::WiFiUDP() : _ctx(0)
 {
     WiFiUDP::_add(this);
 }
@@ -74,7 +74,7 @@ WiFiUDP::~WiFiUDP()
 }
 
 /* Start WiFiUDP socket, listening at local port */
-uint8_t WiFiUDP::begin(uint16_t port) 
+uint8_t WiFiUDP::begin(uint16_t port)
 {
     if (_ctx) {
         _ctx->unref();
@@ -94,7 +94,7 @@ uint8_t WiFiUDP::beginMulticast(IPAddress interfaceAddr, IPAddress multicast, ui
         _ctx->unref();
         _ctx = 0;
     }
-    
+
     ip_addr_t ifaddr;
     ifaddr.addr = (uint32_t) interfaceAddr;
     ip_addr_t multicast_addr;
@@ -116,9 +116,19 @@ uint8_t WiFiUDP::beginMulticast(IPAddress interfaceAddr, IPAddress multicast, ui
 /* return number of bytes available in the current packet,
    will return zero if parsePacket hasn't been called yet */
 int WiFiUDP::available() {
-    if (!_ctx)
-        return 0;
-    return static_cast<int>(_ctx->getSize());
+    int result = 0;
+
+    if (_ctx) {
+        result = static_cast<int>(_ctx->getSize());
+    }
+
+    if (!result) {
+        // yielding here will not make more data "available",
+        // but it will prevent the system from going into WDT reset
+        optimistic_yield(1000);
+    }
+
+    return result;
 }
 
 /* Release any resources being used by this WiFiUDP instance */
@@ -153,7 +163,7 @@ int WiFiUDP::beginPacket(IPAddress ip, uint16_t port)
     return (_ctx->connect(addr, port)) ? 1 : 0;
 }
 
-int WiFiUDP::beginPacketMulticast(IPAddress multicastAddress, uint16_t port, 
+int WiFiUDP::beginPacketMulticast(IPAddress multicastAddress, uint16_t port,
     IPAddress interfaceAddress, int ttl)
 {
     ip_addr_t mcastAddr;
@@ -199,8 +209,12 @@ int WiFiUDP::parsePacket()
 {
     if (!_ctx)
         return 0;
-    if (!_ctx->next())
+
+    if (!_ctx->next()) {
+        optimistic_yield(100);
         return 0;
+    }
+
     return _ctx->getSize();
 }
 
@@ -208,8 +222,8 @@ int WiFiUDP::read()
 {
     if (!_ctx)
         return -1;
-  
-    return _ctx->read();  
+
+    return _ctx->read();
 }
 
 int WiFiUDP::read(unsigned char* buffer, size_t len)
@@ -276,4 +290,3 @@ void WiFiUDP::stopAll()
         it->stop();
     }
 }
-
