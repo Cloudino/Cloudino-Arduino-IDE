@@ -377,6 +377,8 @@
 
     <antcall target="macosx-build-common"/>
 
+    <chmod perm="755" file="macosx/work/Arduino.app/Contents/Java/hardware/tools/cloudino/bin/cloudino"/>
+
   </target>
 
   <target name="macosx-build-common">

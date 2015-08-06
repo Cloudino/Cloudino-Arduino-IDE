@@ -379,6 +379,32 @@ esp210.menu.UploadSpeed.921600=921600
 esp210.menu.UploadSpeed.921600.upload.speed=921600
 
 ##############################################################
+cloudino.name=Cloudino Core (ESP-03 Module)
+ 
+cloudino.upload.tool=esptool
+cloudino.upload.speed=115200
+cloudino.upload.resetmethod=ck
+cloudino.upload.maximum_size=1044464
+cloudino.upload.maximum_data_size=81920
+cloudino.upload.wait_for_upload_port=true
+cloudino.serial.disableDTR=true
+cloudino.serial.disableRTS=true
+
+cloudino.build.mcu=esp8266
+cloudino.build.f_cpu=80000000L
+cloudino.build.board=ESP8266_ESP01
+cloudino.build.core=esp8266
+cloudino.build.variant=generic
+cloudino.build.flash_mode=qio
+cloudino.build.flash_size=2M
+cloudino.build.flash_freq=40
+cloudino.build.flash_ld=eagle.flash.2m.ld
+cloudino.build.spiffs_start=0x100000
+cloudino.build.spiffs_end=0x1FB000
+cloudino.build.spiffs_pagesize=256
+cloudino.build.spiffs_blocksize=8192
+
+##############################################################
 # wifio.name=Wifio
 #
 # wifio.upload.tool=esptool

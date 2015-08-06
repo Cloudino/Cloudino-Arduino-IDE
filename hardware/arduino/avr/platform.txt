@@ -110,7 +110,7 @@ tools.avrdude.bootloader.params.quiet=-q -q
 tools.avrdude.bootloader.pattern="{cmd.path}" "-C{config.path}" {bootloader.verbose} -p{build.mcu} -c{protocol} {program.extra_params} "-Uflash:w:{runtime.platform.path}/bootloaders/{bootloader.file}:i" -Ulock:w:{bootloader.lock_bits}:m
 
 
-# Cloudino Uploader/Programmers tools
+# Cloudino Uploader/Programmers tools AP
 # ------------------------------
 
 tools.cloudino.cmd.path={runtime.ide.path}/hardware/tools/avr/bin/avrdude
@@ -119,11 +119,11 @@ tools.cloudino.config.path={runtime.ide.path}/hardware/tools/avr/etc/avrdude.con
 
 tools.cloudino.upload.params.verbose=-v -v -v -v
 tools.cloudino.upload.params.quiet=-q -q
-tools.cloudino.upload.pattern="{cmd.upath}" "{build.path}/{build.project_name}.hex" {build.mcu} {upload.verbose} 
+tools.cloudino.upload.pattern="{cmd.upath}" "{build.path}/{build.project_name}.hex" {build.mcu} {upload.verbose} {program.extra_params}
 
 tools.cloudino.program.params.verbose=-v -v -v -v
 tools.cloudino.program.params.quiet=-q -q
-tools.cloudino.program.pattern="{cmd.upath}" "{build.path}/{build.project_name}.hex" -s{upload.speed}
+tools.cloudino.program.pattern="{cmd.upath}" "{build.path}/{build.project_name}.hex" -s{upload.speed} {program.extra_params}
 
 
 # USB Default Flags

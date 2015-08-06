@@ -77,7 +77,13 @@ buspirate.program.tool=avrdude
 buspirate.program.extra_params=-P{serial.port}
 
 ## Support for Cloudino Platform
-cloudino.name=Cloudino
+cloudino.name=Cloudino AP
 cloudino.protocol=cloudino
 cloudino.program.tool=cloudino
 cloudino.program.extra_params=
+
+## Support for Cloudino Platform
+cloudinol.name=Cloudino Local
+cloudinol.protocol=cloudino
+cloudinol.program.tool=cloudino
+cloudinol.program.extra_params=-acloudino.local
